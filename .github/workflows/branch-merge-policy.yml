@@ -1,0 +1,84 @@
+name: Branch Merge Policy
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  validate:
+    name: Validate Branch Policy
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Validate source and target
+        shell: bash
+        run: |
+          SOURCE="${{ github.head_ref }}"
+          TARGET="${{ github.base_ref }}"
+
+          echo "Source branch: $SOURCE"
+          echo "Target branch: $TARGET"
+
+          # ==========================================
+          # UAT CANNOT BE A SOURCE
+          # ==========================================
+          if [[ "$SOURCE" == "UAT" ]]; then
+            echo "❌ BLOCKED: UAT cannot be merged into another branch."
+            exit 1
+          fi
+
+          # ==========================================
+          # UAT-RELEASE CAN ONLY GO TO PROD
+          # ==========================================
+          if [[ "$SOURCE" == "UAT-RELEASE" ]]; then
+
+            if [[ "$TARGET" == "PROD" ]]; then
+              echo "✅ Allowed: UAT-RELEASE -> PROD"
+              exit 0
+            fi
+
+            echo "❌ BLOCKED: UAT-RELEASE can only merge into PROD."
+            exit 1
+          fi
+
+          # ==========================================
+          # PROD CANNOT BE A SOURCE
+          # ==========================================
+          if [[ "$SOURCE" == "PROD" ]]; then
+            echo "❌ BLOCKED: PROD cannot be merged into another branch."
+            exit 1
+          fi
+
+          # ==========================================
+          # PROD CAN ONLY RECEIVE UAT-RELEASE
+          # ==========================================
+          if [[ "$TARGET" == "PROD" ]]; then
+            echo "❌ BLOCKED: Only UAT-RELEASE can merge into PROD."
+            exit 1
+          fi
+
+          # ==========================================
+          # UAT-RELEASE
+          # Any normal branch can merge here
+          # UAT and PROD already blocked above
+          # ==========================================
+          if [[ "$TARGET" == "UAT-RELEASE" ]]; then
+            echo "✅ Allowed: $SOURCE -> UAT-RELEASE"
+            exit 0
+          fi
+
+          # ==========================================
+          # UAT
+          # Any normal branch can merge here
+          # UAT-RELEASE and PROD already blocked
+          # ==========================================
+          if [[ "$TARGET" == "UAT" ]]; then
+            echo "✅ Allowed: $SOURCE -> UAT"
+            exit 0
+          fi
+
+          # ==========================================
+          # OTHER BRANCHES
+          # ==========================================
+          echo "ℹ️ No restriction for this target branch."
+          exit 0
